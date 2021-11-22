@@ -1,4 +1,4 @@
-using BinaryBuilder
+using BinaryBuilder, Pkg
 
 name = "OpenMPI"
 version = v"4.1.1"
@@ -23,14 +23,22 @@ if [[ "${target}" == *-freebsd* ]]; then
     export CPPFLAGS="-I/opt/${target}/${target}/sys-root/include/infiniband"
 fi
 
-./configure --prefix=${prefix} \
-    --build=${MACHTYPE} \
-    --host=${target} \
-    --enable-shared=yes \
-    --enable-static=no \
-    --without-cs-fs \
-    --enable-mpi-fortran=usempif08 \
-    --with-cross=${WORKSPACE}/srcdir/${target}
+FLAGS=()
+FLAGS+=(--prefix=${prefix})
+FLAGS+=(--build=${MACHTYPE})
+FLAGS+=(--host=${target})
+FLAGS+=(--enable-shared=yes)
+FLAGS+=(--enable-static=no)
+FLAGS+=(--without-cs-fs)
+FLAGS+=(--enable-mpi-fortran=usempif08)
+FLAGS+=(--with-cross=${WORKSPACE}/srcdir/${target})
+
+if [[ "${target}" == *x86_64* || "${target}" == *powerpc64le* ]]; then
+    FLAGS+=(--with-cuda=${prefix}/cuda)
+    FLAGS+=(--with-ucx=${prefix}/ucx)
+fi
+
+./configure ${FLAGS[@]}
 
 # Build the library
 make -j${nproc}
@@ -81,8 +89,13 @@ products = [
     ExecutableProduct("generate_compile_time_mpi_constants", :generate_compile_time_mpi_constants),
 ]
 
+cuda_version = v"11.2.0"
+ucx_version = v"1.10.0"
+
 dependencies = [
     Dependency("CompilerSupportLibraries_jll"),
+    BuildDependency(PackageSpec(name="UCX_jll",version=ucx_version)),
+    BuildDependency(PackageSpec(name="CUDA_full_jll", version=cuda_version)),
 ]
 
 # Build the tarballs, and possibly a `build.jl` as well.
